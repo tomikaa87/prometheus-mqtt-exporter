@@ -5,6 +5,8 @@
 #include <cstdint>
 #include <string>
 
+#include <microhttpd.h>
+
 class HttpServer
 {
 public:
@@ -18,9 +20,28 @@ public:
         Configuration config
     );
 
+    void start();
+    void stop();
+
 private:
     spdlog::logger _log;
     const Configuration _config;
+    struct MHD_Daemon* _mhdHandle = nullptr;
+
+    MHD_Result onMhdAccessPolicy(
+        const struct sockaddr* addr,
+        socklen_t addrlen
+    );
+
+    MHD_Result onMhdDefaultAccessHandler(
+        struct MHD_Connection* connection,
+        const char* url,
+        const char* method,
+        const char* version,
+        const char* uploadData,
+        size_t *uploadDataSize,
+        void** conCls
+    );
 };
 
 std::string toString(const HttpServer::Configuration& config);
