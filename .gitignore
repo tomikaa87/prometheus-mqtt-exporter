@@ -33,3 +33,4 @@
 
 # Generated files
 build/
+.vscode/
