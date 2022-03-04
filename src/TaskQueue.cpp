@@ -14,7 +14,7 @@ void TaskQueue::exec()
 {
     _log.debug("{} started", __func__);
 
-    while (!_shutdown) {
+    while (true) {
         while (!_queue.empty()) {
             auto elem = [this] {
                 std::lock_guard lock{ _mutex };
@@ -58,11 +58,7 @@ void TaskQueue::exec()
             }
         }
 
-        // Skip execution of delayed task in shutdown state
-        if (_shutdown) {
-            break;
-        }
-
+        auto delayedTaskReQueued = false;
         const auto now = std::chrono::steady_clock::now();
         for (auto it = std::begin(_waitQueue); it != std::end(_waitQueue);) {
             if (now >= it->reQueueTime) {
@@ -75,11 +71,17 @@ void TaskQueue::exec()
                     _waitQueue.size()
                 );
 
+                delayedTaskReQueued = true;
+
                 std::lock_guard lock{ _mutex };
                 _queue.push(std::move(elem));
             } else {
                 ++it;
             }
+        }
+
+        if (_shutdown && _waitQueue.empty() && !delayedTaskReQueued) {
+            break;
         }
 
         std::this_thread::sleep_for(std::chrono::milliseconds{ 1 });
