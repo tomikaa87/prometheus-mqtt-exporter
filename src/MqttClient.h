@@ -5,6 +5,8 @@
 #include <cstdint>
 #include <string>
 
+class TaskQueue;
+
 class MqttClient final
 {
 public:
@@ -16,11 +18,16 @@ public:
 
     MqttClient(
         const LoggerFactory& loggerFactory,
+        TaskQueue& taskQueue,
         Configuration config
     );
 
+    void start();
+    void stop();
+
 private:
     spdlog::logger _log;
+    TaskQueue& _taskQueue;
     const Configuration _config;
 };
 

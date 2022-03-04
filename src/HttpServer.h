@@ -7,6 +7,8 @@
 
 #include <microhttpd.h>
 
+class TaskQueue;
+
 class HttpServer
 {
 public:
@@ -17,6 +19,7 @@ public:
     
     HttpServer(
         const LoggerFactory& loggerFactory,
+        TaskQueue& taskQueue,
         Configuration config
     );
 
@@ -25,6 +28,7 @@ public:
 
 private:
     spdlog::logger _log;
+    TaskQueue& _taskQueue;
     const Configuration _config;
     struct MHD_Daemon* _mhdHandle = nullptr;
 

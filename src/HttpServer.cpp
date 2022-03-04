@@ -1,12 +1,15 @@
 #include "HttpServer.h"
+#include "TaskQueue.h"
 
 #include <arpa/inet.h>
 
 HttpServer::HttpServer(
     const LoggerFactory& loggerFactory,
+    TaskQueue& taskQueue,
     Configuration config
 )
     : _log{ loggerFactory.create("HttpServer") }
+    , _taskQueue{ taskQueue }
     , _config{ std::move(config) }
 {
     _log.info(

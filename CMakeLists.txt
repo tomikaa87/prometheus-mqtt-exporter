@@ -17,6 +17,8 @@ add_executable(prometheus-mqtt-exporter
     ${CMAKE_SOURCE_DIR}/src/LoggerFactory.h
     ${CMAKE_SOURCE_DIR}/src/MqttClient.cpp
     ${CMAKE_SOURCE_DIR}/src/MqttClient.h
+    ${CMAKE_SOURCE_DIR}/src/TaskQueue.cpp
+    ${CMAKE_SOURCE_DIR}/src/TaskQueue.h
 )
 
 target_include_directories(prometheus-mqtt-exporter
