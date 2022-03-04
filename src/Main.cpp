@@ -13,10 +13,16 @@ namespace
     std::unique_ptr<TaskQueue> taskQueue;
     std::unique_ptr<HttpServer> httpServer;
     std::unique_ptr<MqttClient> mqttClient;
+    bool shutdownInitiated = false;
 }
 
 void shutdown()
 {
+    if (shutdownInitiated) {
+        logger.warn("Forcing shutdown");
+        exit(1);
+    }
+
     logger.info("Shutting down");
 
     if (!taskQueue) {
@@ -38,6 +44,8 @@ void shutdown()
             mqttClient->stop();
         });
     }
+
+    shutdownInitiated = true;
 }
 
 void signalHandler(const int signal)

@@ -20,6 +20,7 @@ public:
     struct TaskOptions
     {
         bool reQueue = false;
+        bool reQueued = false;
         std::chrono::milliseconds after = std::chrono::milliseconds::zero();
     };
 
@@ -37,6 +38,7 @@ private:
         std::string id;
         Task task;
         int priority = 0;
+        bool reQueued = false;
 
         bool operator<(const QueueElement& o) const;
     };

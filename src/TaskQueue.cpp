@@ -32,6 +32,7 @@ void TaskQueue::exec()
                 );
 
                 TaskOptions taskOptions;
+                taskOptions.reQueued = elem.reQueued;
                 elem.task(taskOptions);
 
                 if (taskOptions.reQueue) {
@@ -72,6 +73,8 @@ void TaskQueue::exec()
                 );
 
                 delayedTaskReQueued = true;
+
+                elem.reQueued = true;
 
                 std::lock_guard lock{ _mutex };
                 _queue.push(std::move(elem));

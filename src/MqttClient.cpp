@@ -2,6 +2,7 @@
 #include "TaskQueue.h"
 
 #include <chrono>
+#include <numeric>
 
 using namespace std::chrono_literals;
 
@@ -28,19 +29,42 @@ void MqttClient::start()
 {
     _log.info("Starting");
 
+    _reconnect = true;
+
     _stateMachine.dispatch(SM::Events::Connect{});
 }
 
 void MqttClient::stop()
 {
     _log.info("Stopping");
+
+    _reconnect = false;
     
     _stateMachine.dispatch(SM::Events::Disconnect{});
 }
 
+void MqttClient::reconnect()
+{
+    _log.debug("{}", __func__);
+
+    _taskQueue.push("MqttReconnect", [this](auto& options) {
+        if (!_reconnect) {
+            return;
+        }
+        if (!options.reQueued) {
+            options.reQueue = true;
+            options.after = 5s;
+            _log.info("Reconnecting in {}s", options.after.count() / 1000);
+        } else {
+            _log.info("Reconnecting");
+            _stateMachine.dispatch(SM::Events::Connect{});
+        }
+    });
+}
+
 bool MqttClient::onConnect()
 {
-    _log.debug("onConnect");
+    _log.debug("{}", __func__);
     
     if (const auto error = mosquitto_lib_init(); error != MOSQ_ERR_SUCCESS) {
         _log.error(
@@ -83,6 +107,53 @@ bool MqttClient::onConnect()
         self->_stateMachine.dispatch(MqttClient::SM::Events::Disconnected{});
     });
 
+    mosquitto_publish_callback_set(_mosquitto, [](auto*, void* obj, const int mid) {
+        auto* self = reinterpret_cast<MqttClient*>(obj);
+
+        self->_taskQueue.push("MqttOnPublish", [self, mid](auto&) {
+            self->onPublish(mid);
+        });
+    });
+
+    mosquitto_subscribe_callback_set(
+        _mosquitto,
+        [](auto*, void* obj, const int mid, const int qosCount, const int* grantedQos) {
+            auto* self = reinterpret_cast<MqttClient*>(obj);
+
+            std::vector<int> v;
+            v.resize(qosCount);
+            std::memcpy(v.data(), grantedQos, qosCount * sizeof(int));
+
+            self->_taskQueue.push("MqttOnSubscribe", [self, mid, grantedQos{ std::move(v) }](auto&) {
+                self->onSubscribe(mid, std::move(grantedQos));
+            });
+        }
+    );
+
+    mosquitto_message_callback_set(_mosquitto, [](auto*, void* obj, const auto* msg) {
+        auto* self = reinterpret_cast<MqttClient*>(obj);
+
+        std::vector<uint8_t> payload;
+        payload.resize(msg->payloadlen);
+        std::memcpy(payload.data(), msg->payload, msg->payloadlen);
+
+        std::string topic{ msg->topic };
+
+        self->_taskQueue.push(
+            "MqttOnMessage",
+            [
+                self,
+                payload{ std::move(payload) },
+                topic{std::move(topic) },
+                mid{ msg->mid },
+                qos{ msg->qos },
+                retain{ msg->retain }
+            ](auto&) {
+                self->onMessage(mid, std::move(topic), std::move(payload), qos, retain);
+            }
+        );
+    });
+
     if (const auto error = mosquitto_loop_start(_mosquitto); error != MOSQ_ERR_SUCCESS) {
         _log.warn(
             "Can't start Mosquitto loop: error={}",
@@ -105,6 +176,10 @@ bool MqttClient::onConnect()
             mosquitto_strerror(error)
         );
 
+        if (_reconnect) {
+            reconnect();
+        }
+
         return false;
     }
 
@@ -113,12 +188,14 @@ bool MqttClient::onConnect()
 
 void MqttClient::onConnected()
 {
-    _log.debug("onConnected");
+    _log.debug("{}", __func__);
+
+    mosquitto_subscribe(_mosquitto, nullptr, "#", 0);
 }
 
 bool MqttClient::onDisconnect()
 {
-    _log.debug("onDisconnect");
+    _log.debug("{}", __func__);
     
     if (const auto error = mosquitto_disconnect(_mosquitto); error != MOSQ_ERR_SUCCESS) {
         _log.warn(
@@ -143,7 +220,16 @@ bool MqttClient::onDisconnect()
 
 void MqttClient::onDisconnected()
 {
-    _log.debug("onDisconnected");
+    _log.debug("{}", __func__);
+
+    if (const auto error = mosquitto_disconnect(_mosquitto); error != MOSQ_ERR_SUCCESS) {
+        if (error != MOSQ_ERR_NO_CONN) {
+            _log.warn(
+                "Can't disconnect from MQTT broker: error={}",
+                mosquitto_strerror(error)
+            );
+        }
+    }
 
     if (const auto error = mosquitto_loop_stop(_mosquitto, false) != MOSQ_ERR_SUCCESS) {
         _log.warn(
@@ -156,6 +242,59 @@ void MqttClient::onDisconnected()
         mosquitto_destroy(_mosquitto);
         _mosquitto = nullptr;
     }
+
+    mosquitto_lib_cleanup();
+
+    if (_reconnect) {
+        reconnect();
+    }
+}
+
+void MqttClient::onPublish(const int messageId)
+{
+    _log.debug("{}: messageId={}", __func__, messageId);
+}
+
+void MqttClient::onSubscribe(const int messageId, std::vector<int> grantedQos)
+{
+    _log.debug(
+        "{}: messageId={}, grantedQos={}",
+        __func__,
+        messageId,
+        std::accumulate(
+            std::cbegin(grantedQos),
+            std::cend(grantedQos),
+            std::string{},
+            [](const auto& s, const auto& qos) {
+                return s + (!s.empty() ? "," : "") + std::to_string(qos);
+            }
+        )
+    );
+}
+
+void MqttClient::onMessage(
+    const int messageId,
+    std::string topic,
+    std::vector<uint8_t> payload,
+    const int qos,
+    const bool retain
+) {
+    _log.debug(
+        "{}: messageId={}, topic={}, payload={}, qos={}, retain={}",
+        __func__,
+        messageId,
+        topic,
+        std::accumulate(
+            std::cbegin(payload),
+            std::cend(payload),
+            std::string{},
+            [](const auto& s, const auto& v) {
+                return s + (!s.empty() ? " " : "") + fmt::format("{:02X}", v);
+            }
+        ),
+        qos,
+        retain
+    );
 }
 
 std::string toString(const MqttClient::Configuration& config)
@@ -166,105 +305,3 @@ std::string toString(const MqttClient::Configuration& config)
         config.brokerPort
     );
 }
-
-/*
-
-int major, minor, patch;
-    mosquitto_lib_version(&major, &minor, &patch);
-    std::cout << "libmosquitto version: " << major << '.' << minor << '.' << patch << '\n';
-
-    std::cout << "Initializing libmosquitto\n";
-    if (mosquitto_lib_init() != MOSQ_ERR_SUCCESS) {
-        std::cout << "Failed to initialize libmosquitto\n";
-        return 1;
-    }
-
-    struct State
-    {
-        std::promise<bool> connected;
-        std::promise<bool> published;
-        std::promise<std::string> received;
-    } state;
-
-    std::unique_ptr<struct mosquitto, decltype(&mosquitto_destroy)> client{
-        mosquitto_new(nullptr, true, &state),
-        &mosquitto_destroy
-    };
-
-    bool forceStop = false;
-
-    std::cout << "Starting Mosquitto loop\n";
-    if (mosquitto_loop_start(client.get()) != MOSQ_ERR_SUCCESS) {
-        std::cout << "Failed to start Mosquitto loop\n";
-        return 1;
-    }
-
-    mosquitto_connect_callback_set(client.get(), [](auto* mcli, auto* obj, auto rc) {
-        std::cout << "ConnectCB: rc=" << rc << ", thread=" << std::this_thread::get_id() << '\n';
-        reinterpret_cast<State*>(obj)->connected.set_value(rc == 0);
-    });
-
-    mosquitto_publish_callback_set(client.get(), [](auto* mcli, auto* obj, auto mid) {
-        std::cout << "PublishCB: mid=" << mid << ", thread=" << std::this_thread::get_id() << '\n';
-        reinterpret_cast<State*>(obj)->published.set_value(mid > 0);
-    });
-
-    mosquitto_message_callback_set(client.get(), [](auto* mcli, auto* obj, const auto* msg) {
-        std::string payload{ reinterpret_cast<const char*>(msg->payload), static_cast<std::size_t>(msg->payloadlen) };
-        std::cout << "MessageCB: payload=" << payload << '\n';
-        reinterpret_cast<State*>(obj)->received.set_value(std::move(payload));
-    });
-
-    std::cout << "Connecting\n";
-    if (const auto result = mosquitto_connect(client.get(), "naspi.home", 1883, 10); result != MOSQ_ERR_SUCCESS) {
-        std::cout << "Failed to connect: result=" << result << "\n";
-    }
-
-    std::cout << "Main thread ID: " << std::this_thread::get_id() << '\n';
-
-    std::cout << "Waiting for connection\n";
-    auto connectedFuture = state.connected.get_future();
-    if (connectedFuture.wait_for(5s) == std::future_status::ready) {
-        bool connected = connectedFuture.get();
-        std::cout << "Future ready: connected=" << connected << '\n';
-
-        if (connected) {
-            std::cout << "Publishing test message\n";
-            std::string payload{ "almafa123" };
-            mosquitto_publish(client.get(), nullptr, "test/mosquitto/exporter", payload.size(), payload.c_str(), 0, 1);
-
-            auto publishedFuture = state.published.get_future();
-            if (publishedFuture.wait_for(5s) == std::future_status::ready) {
-                bool published = publishedFuture.get();
-                std::cout << "Future ready: published=" << published << '\n';
-            }
-
-            std::cout << "Subscribing to test topic\n";
-            if (mosquitto_subscribe(client.get(), nullptr, "home/temperature/bedroom", 0) != MOSQ_ERR_SUCCESS) {
-                std::cout << "Failed to subscribe to test topic\n";
-                state.received.set_value("failure");
-            }
-
-            auto receivedFuture = state.received.get_future();
-            if (receivedFuture.wait_for(60s) == std::future_status::ready) {
-                const auto payload = receivedFuture.get();
-                std::cout << "Received message: payload=" << payload << '\n';
-            }
-        }
-    }
-
-    std::cout << "Disconnecting\n";
-    if (mosquitto_disconnect(client.get()) != MOSQ_ERR_SUCCESS) {
-        std::cout << "Disconnect failed\n";
-        forceStop = true;
-    }
-
-    std::cout << "Stopping Mosquitto loop\n";
-    if (mosquitto_loop_stop(client.get(), forceStop) != MOSQ_ERR_SUCCESS) {
-        std::cout << "Failed to stop Mosquitto loop\n";
-    }
-
-    std::cout << "Cleaning up libmosquitto\n";
-    mosquitto_lib_cleanup();
-
-*/

@@ -19,7 +19,7 @@ public:
     {
         std::string brokerAddress = "naspi.home";
         uint16_t brokerPort = 1883;
-        int keepAlive = 30;
+        int keepAlive = 5;
     };
 
     MqttClient(
@@ -36,6 +36,7 @@ private:
     TaskQueue& _taskQueue;
     const Configuration _config;
     struct mosquitto* _mosquitto = nullptr;
+    bool _reconnect = false;
     
     struct SM
     {
@@ -127,10 +128,21 @@ private:
 
     StateMachine<SM::Event, SM::State, SM::Transitions> _stateMachine;
 
+    void reconnect();
+
     bool onConnect();
     void onConnected();
     bool onDisconnect();
     void onDisconnected();
+    void onPublish(int messageId);
+    void onSubscribe(int messageId, std::vector<int> grantedQos);
+    void onMessage(
+        int messageId,
+        std::string topic,
+        std::vector<uint8_t> payload,
+        int qos,
+        bool retain
+    );
 };
 
 std::string toString(const MqttClient::Configuration& config);
