@@ -43,11 +43,28 @@ void MqttClient::stop()
     _stateMachine.dispatch(SM::Events::Disconnect{});
 }
 
+void MqttClient::subscribe(std::string topic)
+{
+    _log.info("Subscribing: topic={}", topic);
+
+    if (!std::holds_alternative<SM::States::Connected>(_stateMachine.state())) {
+        if (const auto error = mosquitto_subscribe(_mosquitto, nullptr, topic.c_str(), 0); error != MOSQ_ERR_SUCCESS) {
+            _log.warn(
+                "Can't subscribe to topic: error={}",
+                mosquitto_strerror(error)
+            );
+        }
+    }
+
+    _topics.push_back(std::move(topic));
+}
+
 void MqttClient::reconnect()
 {
     _log.debug("{}", __func__);
 
     _taskQueue.push("MqttReconnect", [this](auto& options) {
+        // Avoid reconnecting if the client is already stopped
         if (!_reconnect) {
             return;
         }
@@ -190,7 +207,18 @@ void MqttClient::onConnected()
 {
     _log.debug("{}", __func__);
 
-    mosquitto_subscribe(_mosquitto, nullptr, "#", 0);
+    for (const auto& topic : _topics) {
+        _log.info("Subscribing: topic={}", topic);
+
+        if (!std::holds_alternative<SM::States::Connected>(_stateMachine.state())) {
+            if (const auto error = mosquitto_subscribe(_mosquitto, nullptr, topic.c_str(), 0); error != MOSQ_ERR_SUCCESS) {
+                _log.warn(
+                    "Can't subscribe to topic: error={}",
+                    mosquitto_strerror(error)
+                );
+            }
+        }
+    }
 }
 
 bool MqttClient::onDisconnect()

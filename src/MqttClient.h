@@ -7,6 +7,7 @@
 #include <string>
 #include <optional>
 #include <type_traits>
+#include <vector>
 
 #include <mosquitto.h>
 
@@ -30,6 +31,7 @@ public:
 
     void start();
     void stop();
+    void subscribe(std::string topic);
 
 private:
     spdlog::logger _log;
@@ -37,6 +39,7 @@ private:
     const Configuration _config;
     struct mosquitto* _mosquitto = nullptr;
     bool _reconnect = false;
+    std::vector<std::string> _topics;
     
     struct SM
     {
