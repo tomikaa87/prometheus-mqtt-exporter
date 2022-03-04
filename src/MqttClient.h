@@ -33,6 +33,9 @@ public:
     void stop();
     void subscribe(std::string topic);
 
+    using MessageReceivedHandler = std::function<void (std::string topic, std::vector<uint8_t> payload)>;
+    void setMessageReceivedHandler(MessageReceivedHandler&& handler);
+
 private:
     spdlog::logger _log;
     TaskQueue& _taskQueue;
@@ -40,6 +43,7 @@ private:
     struct mosquitto* _mosquitto = nullptr;
     bool _reconnect = false;
     std::vector<std::string> _topics;
+    MessageReceivedHandler _messageReceivedHandler;
     
     struct SM
     {

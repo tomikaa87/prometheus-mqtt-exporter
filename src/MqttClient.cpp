@@ -59,6 +59,11 @@ void MqttClient::subscribe(std::string topic)
     _topics.push_back(std::move(topic));
 }
 
+void MqttClient::setMessageReceivedHandler(MessageReceivedHandler&& handler)
+{
+    _messageReceivedHandler = std::move(handler);
+}
+
 void MqttClient::reconnect()
 {
     _log.debug("{}", __func__);
@@ -323,6 +328,10 @@ void MqttClient::onMessage(
         qos,
         retain
     );
+
+    if (_messageReceivedHandler) {
+        _messageReceivedHandler(std::move(topic), std::move(payload));
+    }
 }
 
 std::string toString(const MqttClient::Configuration& config)
