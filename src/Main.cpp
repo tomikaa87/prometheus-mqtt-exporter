@@ -1,3 +1,4 @@
+#include "Configuration.h"
 #include "HttpServer.h"
 #include "LoggerFactory.h"
 #include "MqttClient.h"
@@ -62,21 +63,35 @@ int main()
 
     logger.info("Starting");
 
+    Configuration configuration(loggerFactory);
+    
+    if (!configuration.readFromFile("/home/dev/github/prometheus-mqtt-exporter/build/config.json")) {
+        logger.error("Can't read configuration file, exiting");
+        return 1;
+    }
+
     taskQueue = std::make_unique<TaskQueue>(loggerFactory);
 
     httpServer = std::make_unique<HttpServer>(
         loggerFactory,
         *taskQueue,
         HttpServer::Configuration{
-            .port = 8888
+            .port = configuration.http().serverPort
         }
     );
 
     mqttClient = std::make_unique<MqttClient>(
         loggerFactory,
         *taskQueue,
-        MqttClient::Configuration{}
+        MqttClient::Configuration{
+            .brokerAddress = configuration.mqtt().brokerAddress,
+            .brokerPort = configuration.mqtt().brokerPort
+        }
     );
+
+    for (const auto& topic : configuration.mqtt().topics) {
+        mqttClient->subscribe(topic);
+    }
 
     taskQueue->push("HttpServerStart", [](auto&) {
         httpServer->start();

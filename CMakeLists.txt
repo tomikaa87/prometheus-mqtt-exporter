@@ -10,6 +10,8 @@ set(DEPENDENCIES_DIR PATH ${CMAKE_SOURCE_DIR}/dependencies)
 project(prometheus-mqtt-exporter)
 
 add_executable(prometheus-mqtt-exporter
+    ${CMAKE_SOURCE_DIR}/src/Configuration.cpp
+    ${CMAKE_SOURCE_DIR}/src/Configuration.h
     ${CMAKE_SOURCE_DIR}/src/HttpServer.cpp
     ${CMAKE_SOURCE_DIR}/src/HttpServer.h
     ${CMAKE_SOURCE_DIR}/src/Main.cpp
