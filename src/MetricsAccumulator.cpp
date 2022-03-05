@@ -31,7 +31,7 @@ void MetricsAccumulator::add(const std::string& key, std::string value)
         key,
         metricKey,
         value,
-        timestamp.time_since_epoch().count()
+        std::chrono::duration_cast<std::chrono::milliseconds>(timestamp.time_since_epoch()).count()
     );
 
     _metrics[metricKey] = Metric{

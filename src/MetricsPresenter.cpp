@@ -1,6 +1,7 @@
 #include "MetricsAccumulator.h"
 #include "MetricsPresenter.h"
 
+#include <chrono>
 #include <sstream>
 
 MetricsPresenter::MetricsPresenter(
@@ -25,7 +26,7 @@ std::string MetricsPresenter::present() const
                 Prefix,
                 key,
                 value,
-                timestamp.time_since_epoch().count()
+                std::chrono::duration_cast<std::chrono::milliseconds>(timestamp.time_since_epoch()).count()
             )
             ;
     }
