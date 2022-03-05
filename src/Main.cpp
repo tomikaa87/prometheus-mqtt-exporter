@@ -101,6 +101,11 @@ int main()
         mqttClient->start();
     });
 
+    httpServer->setRequestHandler([](HttpServer::Request& request) {
+        request.setResponseContent(fmt::format("Helloka on endpoint {}", request.endpoint()));
+        request.finish();
+    });
+
     taskQueue->exec();
 
     logger.info("Exiting");

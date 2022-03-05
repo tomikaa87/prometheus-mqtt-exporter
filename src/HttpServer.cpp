@@ -1,7 +1,32 @@
 #include "HttpServer.h"
 #include "TaskQueue.h"
 
+#include <chrono>
+#include <string_view>
+
 #include <arpa/inet.h>
+
+using namespace std::chrono_literals;
+
+namespace
+{
+    using ResponsePointer = std::unique_ptr<MHD_Response, decltype(&MHD_destroy_response)>;
+
+    ResponsePointer createResponse(
+        const std::string& content = {}
+    )
+    {
+        auto* response = MHD_create_response_from_buffer(
+            content.size(),
+            const_cast<char*>(content.c_str()),
+            MHD_RESPMEM_MUST_COPY
+        );
+
+        MHD_add_response_header(response, MHD_HTTP_HEADER_CONTENT_TYPE, "text/plain");
+
+        return ResponsePointer{ response, &MHD_destroy_response };
+    }
+}
 
 HttpServer::HttpServer(
     const LoggerFactory& loggerFactory,
@@ -134,18 +159,82 @@ MHD_Result HttpServer::onMhdDefaultAccessHandler(
 ) {
     _log.debug("onMhdDefaultAccessHandler: url={}, method={}, vesion={}", url, method, version);
 
-    std::string responseContent{ "No Content\r\n" };
+    const std::string_view vUrl{ url };
+    const std::string_view vMethod{ method };
 
-    auto* response = MHD_create_response_from_buffer(
-        responseContent.size(),
-        const_cast<char*>(responseContent.c_str()),
-        MHD_RESPMEM_MUST_COPY
+    if (vMethod != MHD_HTTP_METHOD_GET) {
+        _log.warn("Method not allowed: {}", vMethod);
+
+        MHD_queue_response(
+            connection,
+            MHD_HTTP_METHOD_NOT_ALLOWED,
+            createResponse().get()
+        );
+
+        return MHD_YES;
+    }
+
+    const auto endpointAllowed = std::any_of(
+        std::cbegin(_config.allowedEndpoints),
+        std::cend(_config.allowedEndpoints),
+        [this, &vUrl](const std::string& ep) {
+            return vUrl == ep;
+        }
     );
+
+    if (!endpointAllowed) {
+        _log.warn("Endpoint not allowed: {}", vUrl);
+
+        MHD_queue_response(
+            connection,
+            MHD_HTTP_NOT_FOUND,
+            createResponse().get()
+        );
+
+        return MHD_YES;
+    }
+
+    if (!_requestHandler) {
+        _log.warn("Request handler not registered");
+
+        MHD_queue_response(
+            connection,
+            MHD_HTTP_INTERNAL_SERVER_ERROR,
+            createResponse("Request handler not registered\n").get()
+        );
+
+        return MHD_YES;
+    }
+
+    decltype(Request::_requestHeaders) requestHeaders;
+
+    Request request{
+        url,
+        std::move(requestHeaders)
+    };
+
+    auto requestFuture = request._promise.get_future();
+
+    _taskQueue.push("HttpServerRequestHandler", [this, &request](auto&) {
+        _requestHandler(request);
+    });
+
+    if (const auto status = requestFuture.wait_for(5s); status == std::future_status::timeout) {
+        _log.warn("Request handler timed out");
+
+        MHD_queue_response(
+            connection,
+            MHD_HTTP_INTERNAL_SERVER_ERROR,
+            createResponse("Request handler timed out\n").get()
+        );
+
+        return MHD_YES;
+    }
 
     MHD_queue_response(
         connection,
-        204,
-        response
+        request._responseCode,
+        createResponse(request._responseContent).get()
     );
 
     return MHD_YES;

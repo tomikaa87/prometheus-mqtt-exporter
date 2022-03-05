@@ -47,7 +47,7 @@ void MqttClient::subscribe(std::string topic)
 {
     _log.info("Subscribing: topic={}", topic);
 
-    if (!std::holds_alternative<SM::States::Connected>(_stateMachine.state())) {
+    if (std::holds_alternative<SM::States::Connected>(_stateMachine.state())) {
         if (const auto error = mosquitto_subscribe(_mosquitto, nullptr, topic.c_str(), 0); error != MOSQ_ERR_SUCCESS) {
             _log.warn(
                 "Can't subscribe to topic: error={}",
