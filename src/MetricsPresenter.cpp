@@ -19,7 +19,7 @@ std::string MetricsPresenter::present() const
         content
             << fmt::format("# TYPE {} untyped\n", key)
             << fmt::format(
-                "{0} {1} {2:d}\n",
+                "mqtt_{0} {1} {2:d}\n",
                 key,
                 value,
                 timestamp.time_since_epoch().count()
