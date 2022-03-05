@@ -69,7 +69,7 @@ int main()
 
     Configuration configuration(loggerFactory);
     
-    if (!configuration.readFromFile("/home/dev/github/prometheus-mqtt-exporter/build/config.json")) {
+    if (!configuration.readFromFile("config.json")) {
         logger.error("Can't read configuration file, exiting");
         return 1;
     }
