@@ -13,13 +13,16 @@ std::string MetricsPresenter::present() const
 {
     std::stringstream content;
 
+    static constexpr auto Prefix = "mqtt";
+
     for (const auto& [key, metric] : _metricsAccumulator.metrics()) {
         const auto& [value, timestamp] = metric;
 
         content
-            << fmt::format("# TYPE {} untyped\n", key)
+            << fmt::format("# TYPE {}_{} untyped\n", Prefix, key)
             << fmt::format(
-                "mqtt_{0} {1} {2:d}\n",
+                "{0}_{1} {2} {3:d}\n",
+                Prefix,
                 key,
                 value,
                 timestamp.time_since_epoch().count()
