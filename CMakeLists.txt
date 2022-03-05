@@ -15,6 +15,10 @@ add_executable(prometheus-mqtt-exporter
     ${CMAKE_SOURCE_DIR}/src/HttpServer.cpp
     ${CMAKE_SOURCE_DIR}/src/HttpServer.h
     ${CMAKE_SOURCE_DIR}/src/Main.cpp
+    ${CMAKE_SOURCE_DIR}/src/MetricsAccumulator.cpp
+    ${CMAKE_SOURCE_DIR}/src/MetricsAccumulator.h
+    ${CMAKE_SOURCE_DIR}/src/MetricsPresenter.cpp
+    ${CMAKE_SOURCE_DIR}/src/MetricsPresenter.h
     ${CMAKE_SOURCE_DIR}/src/LoggerFactory.cpp
     ${CMAKE_SOURCE_DIR}/src/LoggerFactory.h
     ${CMAKE_SOURCE_DIR}/src/MqttClient.cpp

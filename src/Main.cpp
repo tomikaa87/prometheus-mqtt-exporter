@@ -1,6 +1,8 @@
 #include "Configuration.h"
 #include "HttpServer.h"
 #include "LoggerFactory.h"
+#include "MetricsAccumulator.h"
+#include "MetricsPresenter.h"
 #include "MqttClient.h"
 #include "TaskQueue.h"
 
@@ -14,6 +16,7 @@ namespace
     std::unique_ptr<TaskQueue> taskQueue;
     std::unique_ptr<HttpServer> httpServer;
     std::unique_ptr<MqttClient> mqttClient;
+    std::unique_ptr<MetricsAccumulator> metricsAccumulator;
     bool shutdownInitiated = false;
 }
 
@@ -89,9 +92,28 @@ int main()
         }
     );
 
+    metricsAccumulator = std::make_unique<MetricsAccumulator>(
+        loggerFactory
+    );
+
     for (const auto& topic : configuration.mqtt().topics) {
         mqttClient->subscribe(topic);
     }
+
+    mqttClient->setMessageReceivedHandler([](const std::string& topic, const std::vector<uint8_t>& payload) {
+        metricsAccumulator->add(
+            topic,
+            std::string{
+                reinterpret_cast<const char*>(payload.data()),
+                payload.size()
+            }
+        );
+    });
+
+    httpServer->setRequestHandler([](HttpServer::Request& request) {
+        request.setResponseContent(fmt::format("Helloka on endpoint {}", request.endpoint()));
+        request.finish();
+    });
 
     taskQueue->push("HttpServerStart", [](auto&) {
         httpServer->start();
@@ -99,11 +121,6 @@ int main()
 
     taskQueue->push("MqttClientStart", [](auto&) {
         mqttClient->start();
-    });
-
-    httpServer->setRequestHandler([](HttpServer::Request& request) {
-        request.setResponseContent(fmt::format("Helloka on endpoint {}", request.endpoint()));
-        request.finish();
     });
 
     taskQueue->exec();

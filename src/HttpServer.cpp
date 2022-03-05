@@ -200,7 +200,7 @@ MHD_Result HttpServer::onMhdDefaultAccessHandler(
         MHD_queue_response(
             connection,
             MHD_HTTP_INTERNAL_SERVER_ERROR,
-            createResponse("Request handler not registered\n").get()
+            createResponse("Request handler not registered").get()
         );
 
         return MHD_YES;
@@ -225,7 +225,7 @@ MHD_Result HttpServer::onMhdDefaultAccessHandler(
         MHD_queue_response(
             connection,
             MHD_HTTP_INTERNAL_SERVER_ERROR,
-            createResponse("Request handler timed out\n").get()
+            createResponse("Request handler timed out").get()
         );
 
         return MHD_YES;
