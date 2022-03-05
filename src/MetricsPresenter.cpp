@@ -20,7 +20,7 @@ std::string MetricsPresenter::present() const
         const auto& [value, timestamp] = metric;
 
         content
-            << fmt::format("# TYPE {}_{} untyped\n", Prefix, key)
+            << fmt::format("# TYPE {}_{} gauge\n", Prefix, key)
             << fmt::format(
                 "{0}_{1} {2} {3:d}\n",
                 Prefix,
