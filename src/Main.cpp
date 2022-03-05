@@ -17,6 +17,7 @@ namespace
     std::unique_ptr<HttpServer> httpServer;
     std::unique_ptr<MqttClient> mqttClient;
     std::unique_ptr<MetricsAccumulator> metricsAccumulator;
+    std::unique_ptr<MetricsPresenter> metricsPresenter;
     bool shutdownInitiated = false;
 }
 
@@ -96,11 +97,19 @@ int main()
         loggerFactory
     );
 
+    metricsPresenter = std::make_unique<MetricsPresenter>(
+        *metricsAccumulator
+    );
+
     for (const auto& topic : configuration.mqtt().topics) {
         mqttClient->subscribe(topic);
     }
 
     mqttClient->setMessageReceivedHandler([](const std::string& topic, const std::vector<uint8_t>& payload) {
+        if (!metricsAccumulator) {
+            return;
+        }
+
         metricsAccumulator->add(
             topic,
             std::string{
@@ -111,7 +120,18 @@ int main()
     });
 
     httpServer->setRequestHandler([](HttpServer::Request& request) {
-        request.setResponseContent(fmt::format("Helloka on endpoint {}", request.endpoint()));
+        if (request.endpoint() == "/metrics") {
+            if (metricsPresenter) {
+                request.setResponseContent(metricsPresenter->present());
+            } else {
+                request.setResponseCode(500);
+                request.setResponseContent("MetricsPresenter is not initialized");
+            }
+        } else {
+            // No content
+            request.setResponseCode(204);
+        }
+
         request.finish();
     });
 

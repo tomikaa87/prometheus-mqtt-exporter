@@ -13,14 +13,19 @@ public:
 
     void add(const std::string& key, std::string value);
 
-private:
-    spdlog::logger _log;
-
     struct Metric
     {
         std::string value;
         std::chrono::system_clock::time_point timestamp;
     };
+
+    const auto& metrics() const
+    {
+        return _metrics;
+    }
+
+private:
+    spdlog::logger _log;
 
     std::map<std::string, Metric> _metrics;
 };
