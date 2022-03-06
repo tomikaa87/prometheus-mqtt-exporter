@@ -19,6 +19,17 @@ std::string MetricsPresenter::present() const
     for (const auto& [key, metricQueue] : _metricsAccumulator.metrics()) {
         content << fmt::format("# TYPE {}_{} gauge\n", Prefix, key);
 
+#if 1
+        content
+            << fmt::format(
+                "{0}_{1} {2}\n",
+                Prefix,
+                key,
+                metricQueue.front().value
+            );
+#endif
+
+#if 0
         for (auto it = std::cbegin(metricQueue); it != std::cend(metricQueue); ++it) {
             const auto& [value, timestamp] = *it;
 
@@ -45,6 +56,7 @@ std::string MetricsPresenter::present() const
                     );    
             }
         }
+#endif
     }
 
     return content.str();
