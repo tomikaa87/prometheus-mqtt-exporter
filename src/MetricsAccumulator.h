@@ -3,7 +3,6 @@
 #include "LoggerFactory.h"
 
 #include <chrono>
-#include <deque>
 #include <map>
 #include <string>
 
@@ -28,5 +27,5 @@ public:
 private:
     spdlog::logger _log;
 
-    std::map<std::string, std::deque<Metric>> _metrics;
+    std::map<std::string, Metric> _metrics;
 };

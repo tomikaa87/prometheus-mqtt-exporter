@@ -34,18 +34,8 @@ void MetricsAccumulator::add(const std::string& key, std::string value)
         std::chrono::duration_cast<std::chrono::milliseconds>(timestamp.time_since_epoch()).count()
     );
 
-    auto& metricQueue = _metrics[metricKey];
-
-    if (metricQueue.front().value == value) {
-        return;
-    }
-
-    metricQueue.push_back(Metric{
+    _metrics[metricKey] = Metric{
         .value = std::move(value),
         .timestamp = std::move(timestamp)
-    });
-
-    while (metricQueue.size() > 50) {
-        metricQueue.pop_front();
-    }
+    };
 }
