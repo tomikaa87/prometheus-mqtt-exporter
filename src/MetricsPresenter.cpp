@@ -25,7 +25,7 @@ std::string MetricsPresenter::present() const
                 "{0}_{1} {2}\n",
                 Prefix,
                 key,
-                metricQueue.front().value
+                metricQueue.back().value
             );
 #endif
 
