@@ -17,6 +17,7 @@ namespace Fields::Http
 
 namespace Fields::Mqtt
 {
+    static constexpr auto ClientId = "clientId";
     static constexpr auto BrokerAddress = "brokerAddress";
     static constexpr auto BrokerPort = "brokerPort";
     static constexpr auto Topics = "topics";
@@ -84,6 +85,14 @@ void Configuration::processMqtt(const nlohmann::json& json)
     if (!json.is_object()) {
         _log.warn("'{}' is missing or not an object", Objects::Mqtt);
         return;
+    }
+
+    if (
+        json.contains(Fields::Mqtt::ClientId)
+        && json[Fields::Mqtt::ClientId].is_string()
+    ) {
+        _mqtt.clientId = json[Fields::Mqtt::ClientId];
+        _log.info("{}.{}={}", Objects::Mqtt, Fields::Mqtt::ClientId, _mqtt.clientId);
     }
 
     if (

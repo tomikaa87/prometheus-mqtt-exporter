@@ -88,6 +88,7 @@ int main()
         loggerFactory,
         *taskQueue,
         MqttClient::Configuration{
+            .clientId = configuration.mqtt().clientId,
             .brokerAddress = configuration.mqtt().brokerAddress,
             .brokerPort = configuration.mqtt().brokerPort
         }

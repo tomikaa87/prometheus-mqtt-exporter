@@ -22,6 +22,7 @@ public:
 
     struct Mqtt
     {
+        std::string clientId = "PrometheusMqttExporter";
         std::string brokerAddress = "localhost";
         uint16_t brokerPort = 1883;
         std::vector<std::string> topics;

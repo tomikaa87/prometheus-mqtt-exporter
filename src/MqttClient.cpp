@@ -101,7 +101,7 @@ bool MqttClient::onConnect()
         mosquitto_destroy(_mosquitto);
     }
 
-    _mosquitto = mosquitto_new("PrometheusMqttExporter", true, this);
+    _mosquitto = mosquitto_new(_config.clientId.c_str(), true, this);
 
     mosquitto_connect_callback_set(_mosquitto, [](auto*, void* obj, const int rc) {
         auto* self = reinterpret_cast<MqttClient*>(obj);

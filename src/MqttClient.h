@@ -18,8 +18,9 @@ class MqttClient final
 public:
     struct Configuration
     {
-        std::string brokerAddress = "naspi.home";
-        uint16_t brokerPort = 1883;
+        std::string clientId;
+        std::string brokerAddress;
+        uint16_t brokerPort = 0;
         int keepAlive = 5;
     };
 
