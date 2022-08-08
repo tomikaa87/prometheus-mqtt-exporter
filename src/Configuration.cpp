@@ -21,6 +21,8 @@ namespace Fields::Mqtt
     static constexpr auto BrokerAddress = "brokerAddress";
     static constexpr auto BrokerPort = "brokerPort";
     static constexpr auto Topics = "topics";
+    static constexpr auto Username = "username";
+    static constexpr auto Password = "password";
 }
 
 Configuration::Configuration(const LoggerFactory& loggerFactory)
@@ -123,5 +125,21 @@ void Configuration::processMqtt(const nlohmann::json& json)
             _mqtt.topics.push_back(topic);
             _log.info("{}.{}={}", Objects::Mqtt, Fields::Mqtt::Topics, static_cast<std::string>(topic));
         }
+    }
+
+    if (
+        json.contains(Fields::Mqtt::Username)
+        && json[Fields::Mqtt::Username].is_string()
+    ) {
+        _mqtt.username = json[Fields::Mqtt::Username];
+        _log.info("{}.{}={}", Objects::Mqtt, Fields::Mqtt::Username, _mqtt.username);
+    }
+
+    if (
+        json.contains(Fields::Mqtt::Password)
+        && json[Fields::Mqtt::Password].is_string()
+    ) {
+        _mqtt.password = json[Fields::Mqtt::Password];
+        _log.info("{}.{}={}", Objects::Mqtt, Fields::Mqtt::Password, _mqtt.password);
     }
 }

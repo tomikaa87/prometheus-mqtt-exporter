@@ -90,7 +90,9 @@ int main()
         MqttClient::Configuration{
             .clientId = configuration.mqtt().clientId,
             .brokerAddress = configuration.mqtt().brokerAddress,
-            .brokerPort = configuration.mqtt().brokerPort
+            .brokerPort = configuration.mqtt().brokerPort,
+            .username = configuration.mqtt().username,
+            .password = configuration.mqtt().password
         }
     );
 

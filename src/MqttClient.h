@@ -22,6 +22,8 @@ public:
         std::string brokerAddress;
         uint16_t brokerPort = 0;
         int keepAlive = 5;
+        std::string username;
+        std::string password;
     };
 
     MqttClient(

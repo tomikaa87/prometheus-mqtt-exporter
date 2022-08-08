@@ -103,6 +103,10 @@ bool MqttClient::onConnect()
 
     _mosquitto = mosquitto_new(_config.clientId.c_str(), true, this);
 
+    if (!_config.username.empty()) {
+        mosquitto_username_pw_set(_mosquitto, _config.username.c_str(), _config.password.c_str());
+    }
+
     mosquitto_connect_callback_set(_mosquitto, [](auto*, void* obj, const int rc) {
         auto* self = reinterpret_cast<MqttClient*>(obj);
 

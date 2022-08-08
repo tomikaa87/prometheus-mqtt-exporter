@@ -26,6 +26,8 @@ public:
         std::string brokerAddress = "localhost";
         uint16_t brokerPort = 1883;
         std::vector<std::string> topics;
+        std::string username;
+        std::string password;
     };
 
     const Http& http() const
