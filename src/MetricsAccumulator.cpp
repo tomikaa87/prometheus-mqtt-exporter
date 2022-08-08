@@ -8,6 +8,11 @@ MetricsAccumulator::MetricsAccumulator(const LoggerFactory& loggerFactory)
 
 void MetricsAccumulator::add(const std::string& key, std::string value)
 {
+    if (value.find_first_not_of("0123456789.") != std::string::npos) {
+        _log.debug("Add: ignoring non-numeric value, key={}, value={}", key, value);
+        return;
+    }
+
     const auto timestamp = std::chrono::system_clock::now();
 
     const auto keyTransformer = [](const char c) {
